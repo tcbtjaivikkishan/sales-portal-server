@@ -12,6 +12,56 @@ type ZohoAddressPayload = {
   phone?: string;
 };
 
+export function getZohoStateCode(inputState?: string): string {
+  if (!inputState) return '';
+
+  const state = inputState.trim().toLowerCase();
+
+  const stateMap: Record<string, string> = {
+    // States
+    'andhra pradesh': 'AP',
+    'arunachal pradesh': 'AR',
+    'assam': 'AS',
+    'bihar': 'BR',
+    'chhattisgarh': 'CG',
+    'goa': 'GA',
+    'gujarat': 'GJ',
+    'haryana': 'HR',
+    'himachal pradesh': 'HP',
+    'jharkhand': 'JH',
+    'karnataka': 'KA',
+    'kerala': 'KL',
+    'madhya pradesh': 'MP',
+    'maharashtra': 'MH',
+    'manipur': 'MN',
+    'meghalaya': 'ML',
+    'mizoram': 'MZ',
+    'nagaland': 'NL',
+    'odisha': 'OR',
+    'punjab': 'PB',
+    'rajasthan': 'RJ',
+    'sikkim': 'SK',
+    'tamil nadu': 'TN',
+    'telangana': 'TS',
+    'tripura': 'TR',
+    'uttar pradesh': 'UP',
+    'uttarakhand': 'UA',
+    'west bengal': 'WB',
+
+    // Union Territories
+    'andaman and nicobar islands': 'AN',
+    'chandigarh': 'CH',
+    'dadra and nagar haveli and daman and diu': 'DN',
+    'delhi': 'DL',
+    'jammu and kashmir': 'JK',
+    'ladakh': 'LA',
+    'lakshadweep': 'LD',
+    'puducherry': 'PY',
+  };
+
+  return stateMap[state] ?? (inputState.length === 2 ? inputState.toUpperCase() : inputState);
+}
+
 @Injectable()
 export class ZohoInventoryService {
   constructor(
@@ -47,6 +97,8 @@ export class ZohoInventoryService {
       throw new Error('Order address is incomplete for Zoho sync');
     }
 
+    const stateCode = getZohoStateCode(address.state);
+
     const zohoAddress: ZohoAddressPayload = {
       attention:
         order.customerName ||
@@ -55,7 +107,7 @@ export class ZohoInventoryService {
         undefined,
       address: fullStreetAddress,
       city: address.city,
-      state: address.state,
+      state: stateCode || address.state,
       zip: address.pincode,
     };
 
@@ -259,9 +311,13 @@ export class ZohoInventoryService {
     const { billingAddressId, shippingAddressId } =
       await this.upsertContactAddresses(customerId, order);
 
+    const placeOfSupply = getZohoStateCode(order.address?.state);
+
     const payload: any = {
       customer_id: customerId,
       reference_number: order.orderId,
+      is_inclusive_tax: true,
+      ...(placeOfSupply ? { place_of_supply: placeOfSupply } : {}),
       line_items: order.items.map((item: any) => ({
         item_id: item.zohoItemId,
         name: item.name,
